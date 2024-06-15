@@ -181,35 +181,47 @@ def main():
     if args.port_positional is not None:
         args.port = args.port_positional
 
-    address = setup_tunnel('127.0.0.1', args.port, secrets.token_urlsafe(32), None)
+    try:
+        address = setup_tunnel('127.0.0.1', args.port, secrets.token_urlsafe(32), None)
 
-    gradio_code = f'''
+        gradio_code = f'''
 import gradio as gr
 
 def greet(name):
     return f"Hello {{name}}!"
 
 iface = gr.Interface(fn=greet, inputs="text", outputs="text")
-iface.launch(server_port={args.port})
+
+try:
+    iface.launch(server_port={args.port})
+except OSError as e:
+    #print(f"An error occurred while launching Gradio server on port {args.port}: {{e}}")
+    #print("Ignoring this error and continuing execution.")
+    #print("")
+    pass
 '''
 
-    server_process = subprocess.Popen([sys.executable, '-c', gradio_code])
-    time.sleep(3)
+        server_process = subprocess.Popen([sys.executable, '-c', gradio_code])
+        time.sleep(3)
 
-    try:
-        response = requests.get(address)
-        if response.status_code != 200:
-            print(f"Failed to access the address. Status code: {response.status_code}")
-    except requests.RequestException as e:
-        print(f"An error occurred while trying to access the address: {e}")
-    finally:
-        server_process.terminate()
-        server_process.wait()
+        try:
+            response = requests.get(address)
+            if response.status_code != 200:
+                print(f"Failed to access the address. Status code: {response.status_code}")
+        except requests.RequestException as e:
+            print(f"An error occurred while trying to access the address: {e}")
+        finally:
+            server_process.terminate()
+            server_process.wait()
 
-    print(f"公网访问地址：{address}")
-    print("这个共享链接将在 72 小时后过期，此程序将在 72 小时后关闭。")
-    time.sleep(3600 * 24 * 3)
-
+        print(f"Your local port {args.port} is now available for 72 hours through Gradio Tunneling at: {address}")
+        #print("这个共享链接将在 72 小时后过期，此程序将在 72 小时后关闭。")
+        time.sleep(3600 * 24 * 3)
+    except OSError as e:
+        #print(f"An error occurred: {e}")
+        #print("Ignoring this error and continuing execution.")
+        #print("")
+        pass
 
 if __name__ == '__main__':
     main()
